@@ -2,6 +2,7 @@ import streamlit as st
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from imblearn.over_sampling import SMOTE
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -159,24 +160,112 @@ with tab2:
 
             churn_counts.index = churn_counts.index.map({0: "No", 1: "Yes"})
             st.bar_chart(churn_counts)
+        if st.session_state.get("smote_df") is not None:
+            if st.button("Split & Scaling Data"):
+                X = st.session_state.smote_df.drop("Churn", axis=1)
+                y = st.session_state.smote_df["Churn"]
+                X_train, X_test, y_train, y_test = splitting_scaling(X, y)
+
+                st.session_state.X_train = X_train
+                st.session_state.X_test = X_test
+                st.session_state.y_train = y_train
+                st.session_state.y_test = y_test
+
+                st.success("Data berhasil di-split dan discaling!")
+                st.write(f"Jumlah data training: {len(X_train)}")
+                st.write(f"Jumlah data testing: {len(X_test)}")
+                st.write(f"Proporsi: {len(X_train)/(len(X_train)+len(X_test)):.2%} training / {len(X_test)/(len(X_train)+len(X_test)):.2%} testing")
+        
 
 with tab3:
-    st.header("Build Model & Hyperparameter Tuning")
-    if st.session_state.get("smote_df") is not None:
-        if st.button("Split & Scaling Data"):
-            X = st.session_state.smote_df.drop("Churn", axis=1)
-            y = st.session_state.smote_df["Churn"]
-            X_train, X_test, y_train, y_test = splitting_scaling(X, y)
+    st.header("Hyperparameter Tuning & Build Model")
+    
+    if not all(k in st.session_state for k in ("X_train", "X_test", "y_train", "y_test")):
+        st.warning("⚠️ Anda perlu melakukan preprocessing, SMOTE, dan split & scaling pada tab sebelumnya terlebih dahulu.")
+        st.stop()
+    
+    st.subheader("Param Grid")
+    st.code(
+        """param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [None, 10, 20],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2],
+    'bootstrap': [True, False]
+    }""",
+        language="python"
+    )
 
-            # Simpan hasil di session_state agar bisa digunakan nanti
-            st.session_state.X_train = X_train
-            st.session_state.X_test = X_test
-            st.session_state.y_train = y_train
-            st.session_state.y_test = y_test
+    # Load model dan GridSearch
+    gs = joblib.load("models/grid_search.pkl")
+    rf_model = joblib.load('models/best_model.pkl')
 
-            st.success("Data berhasil di-split dan discaling!")
-            st.write(f"Jumlah data training: {len(X_train)}")
-            st.write(f"Jumlah data testing: {len(X_test)}")
-            st.write(f"Proporsi: {len(X_train)/(len(X_train)+len(X_test)):.2%} training / {len(X_test)/(len(X_train)+len(X_test)):.2%} testing")
-    else:
-        st.warning("⚠️ Anda perlu melakukan SMOTE terlebih dahulu pada tab EDA & Preprocessing sebelum split & scaling data.")
+    st.write("Kombinasi Parameter Terbaik (Best Parameters):")
+    st.write(gs.best_params_)
+    st.write("Skor Rata-Rata Cross Validation Terbaik (Best Score):")
+    st.write(gs.best_score_)
+
+    y_train_pred = rf_model.predict(st.session_state.X_train)
+    y_pred = rf_model.predict(st.session_state.X_test)
+
+    st.session_state.y_train_pred = y_train_pred
+    st.session_state.y_pred = y_pred
+
+    # == BUTTON 1: TAMPILKAN AKURASI ==
+    if st.button("Train Model"):
+        st.session_state.show_accuracy = True
+
+    if st.session_state.get("show_accuracy", False):
+        st.write(f"Train Accuracy: {accuracy_score(st.session_state.y_train, y_train_pred):.4f}")
+        st.write(f"Test Accuracy:  {accuracy_score(st.session_state.y_test, y_pred):.4f}")
+        
+        importances = rf_model.feature_importances_
+        features = st.session_state.X_train.columns
+        importance_df = pd.DataFrame({"Feature": features, "Importance": importances}).sort_values(by="Importance", ascending=False)
+        st.session_state.importance_df = importance_df
+        st.subheader("Feature Importance (Original Model)")
+        st.bar_chart(st.session_state.importance_df.set_index("Feature")["Importance"])
+
+    # == BUTTON 2: ANALISIS FEATURE IMPORTANCE ==
+    if "importance_df" in st.session_state and st.button("Analyze Important Features (Threshold 0.01)"):
+        threshold = 0.01
+        important_features = st.session_state.importance_df[
+            st.session_state.importance_df['Importance'] >= threshold
+        ]
+        X_train_selected = st.session_state.X_train[important_features["Feature"]]
+        X_test_selected = st.session_state.X_test[important_features["Feature"]]
+
+        st.session_state.important_features = important_features
+        st.session_state.X_train_selected = X_train_selected
+        st.session_state.X_test_selected = X_test_selected
+        st.session_state.show_selected_features = True
+
+    if st.session_state.get("show_selected_features", False):
+        st.subheader("Feature Importance dengan Threshold 0.01")
+        st.bar_chart(st.session_state.important_features.set_index("Feature")["Importance"])
+        st.write(f"Features to drop: {len(st.session_state.X_train.columns) - len(st.session_state.important_features)}")
+        st.write(f"Features dengan importance >= 0.01: {len(st.session_state.important_features)}")
+        st.subheader("Selected Features")
+        st.dataframe(st.session_state.important_features)
+
+    # == BUTTON 3: RETRAIN MODEL ==
+    if "important_features" in st.session_state and st.button("Retrain Model after Feature Selection"):
+        rf_model_selected, selected_features = joblib.load("models/best_model_selected_features.pkl")
+        X_train_selected = st.session_state.X_train[selected_features]
+        X_test_selected = st.session_state.X_test[selected_features]
+
+        y_train_pred_selected = rf_model_selected.predict(X_train_selected)
+        y_pred_selected = rf_model_selected.predict(X_test_selected)
+
+        st.session_state.retrained_model = {
+            "model": rf_model_selected,
+            "y_train_pred": y_train_pred_selected,
+            "y_pred": y_pred_selected
+        }
+        st.session_state.show_retrain_result = True
+
+    if st.session_state.get("show_retrain_result", False):
+        st.subheader("Performance after Feature Selection")
+        retrain = st.session_state.retrained_model
+        st.write(f"Train Accuracy: {accuracy_score(st.session_state.y_train, retrain['y_train_pred']):.4f}")
+        st.write(f"Test Accuracy:  {accuracy_score(st.session_state.y_test, retrain['y_pred']):.4f}")
