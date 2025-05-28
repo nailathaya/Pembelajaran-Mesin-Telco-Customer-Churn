@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import warnings
 import kagglehub
 import io
+import joblib
 
 warnings.filterwarnings('ignore')
 
@@ -56,7 +57,7 @@ def sampling_smote(df):
     X_sampled,y_sampled=smote.fit_resample(X,y)
     return X_sampled, y_sampled
 
-def scaling_splitting(X_sampled,y_sampled):
+def splitting_scaling(X_sampled,y_sampled):
     from sklearn.model_selection import train_test_split
     from sklearn.preprocessing import StandardScaler
 
@@ -91,8 +92,8 @@ with tab1:
 with tab2:
     st.header("EDA & Preprocessing")
     if not st.session_state.get("data_loaded", False):
-        st.warning("⚠️ Silakan tekan tombol 'Load Dataset' terlebih dahulu di tab pertama untuk memulai.")
-        st.stop()
+        st.warning("⚠️ Anda perlu Load Dataset terlebih dahulu pada tab Load Dataset sebelum melakukan EDA & Preprocessing.")
+    # st.stop()
     else:
         st.subheader("DataFrame Info")
 
@@ -159,4 +160,23 @@ with tab2:
             churn_counts.index = churn_counts.index.map({0: "No", 1: "Yes"})
             st.bar_chart(churn_counts)
 
-# with tab3:
+with tab3:
+    st.header("Build Model & Hyperparameter Tuning")
+    if st.session_state.get("smote_df") is not None:
+        if st.button("Split & Scaling Data"):
+            X = st.session_state.smote_df.drop("Churn", axis=1)
+            y = st.session_state.smote_df["Churn"]
+            X_train, X_test, y_train, y_test = splitting_scaling(X, y)
+
+            # Simpan hasil di session_state agar bisa digunakan nanti
+            st.session_state.X_train = X_train
+            st.session_state.X_test = X_test
+            st.session_state.y_train = y_train
+            st.session_state.y_test = y_test
+
+            st.success("Data berhasil di-split dan discaling!")
+            st.write(f"Jumlah data training: {len(X_train)}")
+            st.write(f"Jumlah data testing: {len(X_test)}")
+            st.write(f"Proporsi: {len(X_train)/(len(X_train)+len(X_test)):.2%} training / {len(X_test)/(len(X_train)+len(X_test)):.2%} testing")
+    else:
+        st.warning("⚠️ Anda perlu melakukan SMOTE terlebih dahulu pada tab EDA & Preprocessing sebelum split & scaling data.")
