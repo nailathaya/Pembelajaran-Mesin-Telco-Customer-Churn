@@ -18,7 +18,7 @@ warnings.filterwarnings('ignore')
 
 st.set_page_config(page_title="Prediksi Telco Customer Churn", layout="wide")
 st.title("📱 Prediksi Telco Customer Churn dengan Random Forest")
-# Interface Streamlit
+
 tab1, tab2, tab3 = st.tabs(["📝 Load Dataset", "🔍 EDA & Preprocessing", "📊 Model"])
 
 @st.cache_data
@@ -131,7 +131,6 @@ with tab2:
     st.header("EDA & Preprocessing")
     if not st.session_state.get("data_loaded", False):
         st.warning("⚠️ Anda perlu Load Dataset terlebih dahulu pada tab Load Dataset sebelum melakukan EDA & Preprocessing.")
-    # st.stop()
     else:
         st.subheader("🔹 DataFrame Info")
 
@@ -247,13 +246,11 @@ Logistic Regression:
                 language="python"
     )
 
-    # Load model dan GridSearch
     gs = joblib.load("models/grid_search.pkl")
     best_pipeline = joblib.load('models/best_model.pkl')
 
     if isinstance(best_pipeline.named_steps['clf'], RandomForestClassifier):
         rf_model = best_pipeline.named_steps['clf']
-    # rf_model = joblib.load('models/best_model.pkl')
 
     st.write("**Skema model & Kombinasi Parameter Terbaik (Best Model & Parameters):**")
     st.write(gs.best_params_)
@@ -269,7 +266,6 @@ Logistic Regression:
     st.session_state.y_train_pred = y_train_pred
     st.session_state.y_pred = y_pred
     st.subheader("🔹 Training Model")
-    # == BUTTON 1: TAMPILKAN AKURASI ==
     if st.button("Train Model"):
         st.session_state.show_accuracy = True
 
@@ -291,136 +287,131 @@ Logistic Regression:
         st.subheader(" 🔹 Grafik Feature Importance (Fitur Lengkap)")
         st.bar_chart(st.session_state.importance_df.set_index("Feature")["Importance"])
 
-    st.subheader("🔹Evaluasi Threshold untuk Feature Selection")
+        st.subheader("🔹Evaluasi Threshold untuk Feature Selection")
 
-    if st.button("Evaluasi Threshold Feature Importance"):
-        df_results = evaluate_thresholds(
-            st.session_state.X_train, st.session_state.y_train,
-            st.session_state.X_test, st.session_state.y_test,
-            st.session_state.importance_df
-        )
-        st.session_state.threshold_eval_df = df_results
-        st.success("Evaluasi threshold selesai!")
-
-    if "threshold_eval_df" in st.session_state:
-        st.write("Hasil Evaluasi Threshold:")
-        st.dataframe(st.session_state.threshold_eval_df)
-
-        # Plot
-        st.write("Grafik Threshold dan Akurasi (CV & Test)")
-        col1, col2 = st.columns([1, 1])
-        
-        with col1:
-            fig, ax = plt.subplots(figsize=(10, 6), facecolor='none')  # 'none' buat transparan
-            ax.patch.set_alpha(0)
-            # Plot data
-            ax.errorbar(
-                st.session_state.threshold_eval_df['Threshold'], 
-                st.session_state.threshold_eval_df['CV_Accuracy_Mean'],
-                yerr=st.session_state.threshold_eval_df['CV_Accuracy_Std'], 
-                fmt='-o', capsize=5, label='CV Accuracy'
+        if st.button("Evaluasi Threshold Feature Importance"):
+            df_results = evaluate_thresholds(
+                st.session_state.X_train, st.session_state.y_train,
+                st.session_state.X_test, st.session_state.y_test,
+                st.session_state.importance_df
             )
-            ax.plot(
-                st.session_state.threshold_eval_df['Threshold'], 
-                st.session_state.threshold_eval_df['Test_Accuracy'], 
-                '-s', label='Test Accuracy', color='orange'
-            )
+            st.session_state.threshold_eval_df = df_results
+            st.success("Evaluasi threshold selesai!")
 
-            # Set label warna putih
-            ax.set_xlabel("Threshold", color='white')
-            ax.set_ylabel("Accuracy", color='white')
-            ax.set_title("Threshold vs Accuracy (CV & Test)", color='white')
+        if "threshold_eval_df" in st.session_state:
+            st.write("Hasil Evaluasi Threshold:")
+            st.dataframe(st.session_state.threshold_eval_df)
 
-            # Ubah warna ticks (angka pada sumbu)
-            ax.tick_params(axis='x', colors='white')
-            ax.tick_params(axis='y', colors='white')
-
-            # Ubah warna grid dan legend agar tetap jelas
-            ax.grid(True, color='gray', alpha=0.3)
-            legend = ax.legend(frameon=False)
-            for text in legend.get_texts():
-                text.set_color('white')
-
-            st.pyplot(fig)
-    # == BUTTON 2: ANALISIS FEATURE IMPORTANCE ==
-    if "importance_df" in st.session_state and st.button("Analyze Important Features (Threshold 0.005)"):
-        threshold = 0.005
-        important_features = st.session_state.importance_df[
-            st.session_state.importance_df['Importance'] >= threshold
-        ]
-        X_train_selected = st.session_state.X_train[important_features["Feature"]]
-        X_test_selected = st.session_state.X_test[important_features["Feature"]]
-
-        st.session_state.important_features = important_features
-        st.session_state.X_train_selected = X_train_selected
-        st.session_state.X_test_selected = X_test_selected
-        st.session_state.show_selected_features = True
-
-    if st.session_state.get("show_selected_features", False):
-        st.subheader("🔹Grafik Feature Importance dengan Threshold 0.005")
-        st.bar_chart(st.session_state.important_features.set_index("Feature")["Importance"])
-        st.write(f"Fitur yang dihapus: {len(st.session_state.X_train.columns) - len(st.session_state.important_features)}")
-        st.write(f"Jumlah fitur dengan importance >= 0.005: {len(st.session_state.important_features)}")
-        original_count = st.session_state.X_train.shape[1]
-        selected_count = len(st.session_state.important_features)
-        reduction_percent = ((original_count - selected_count) / original_count) * 100
-        st.write(f"📉 **Feature Reduction:** {original_count} → {selected_count} features ({reduction_percent:.1f}% reduction)")
-
-        st.subheader("🔹Selected Features")
-        st.dataframe(st.session_state.important_features.reset_index(drop=True))
-        
-    # == BUTTON 3: RETRAIN MODEL ==
-    st.subheader("🔹Retrain Model")
-    if "important_features" in st.session_state and st.button("Retrain Model after Feature Selection"):
-        rf_model_selected, selected_features = joblib.load("models/best_model_selected_features.pkl")
-        X_train_selected = st.session_state.X_train[selected_features]
-        X_test_selected = st.session_state.X_test[selected_features]
-        y_train_pred_selected = rf_model_selected.predict(X_train_selected)
-        y_pred_selected = rf_model_selected.predict(X_test_selected)
-
-        st.session_state.retrained_model = {
-            "model": rf_model_selected,
-            "y_train_pred": y_train_pred_selected,
-            "y_pred": y_pred_selected,
-            "selected_features": selected_features
-        }
-        st.session_state.show_retrain_result = True
-
-    if st.session_state.get("show_retrain_result", False):
-        retrain = st.session_state.retrained_model
-        if st.session_state.get("show_retrain_result", False):
-            retrain = st.session_state.retrained_model
-
-            train_acc = accuracy_score(st.session_state.y_train, retrain["y_train_pred"])
-            test_acc = accuracy_score(st.session_state.y_test, retrain["y_pred"])
-            
-            st.write(f"**Train Accuracy:** {train_acc:.4f}")
-            st.write(f"**Test Accuracy:** {test_acc:.4f}")
-
-        
-            st.subheader(" 🔹Classification Report")
-            report_test_text = classification_report(
-                st.session_state.y_test, retrain["y_pred"]
-            )
-            st.markdown(f"```\n{report_test_text}\n```")
-
-            cm_selected = confusion_matrix(st.session_state.y_test, retrain["y_pred"])
-            st.subheader(" 🔹**Confusion Matrix sebelum & setelah Feature Selection**")
+            st.write("Grafik Threshold dan Akurasi (CV & Test)")
             col1, col2 = st.columns([1, 1])
             
             with col1:
-                fig, ax = plt.subplots(figsize=(7, 5), facecolor='none')
-                sns.heatmap(cm, annot=True, fmt="d", cmap="Greens", ax=ax,cbar=True)
-                ax.set_title("Confusion Matrix\n(Before Feature Selection)", color = 'white')
-                ax.set_xlabel("Predicted Label", color = "white")
-                ax.set_ylabel("True Label", color = "white")
+                fig, ax = plt.subplots(figsize=(10, 6), facecolor='none') 
+                ax.patch.set_alpha(0)
+
+                ax.errorbar(
+                    st.session_state.threshold_eval_df['Threshold'], 
+                    st.session_state.threshold_eval_df['CV_Accuracy_Mean'],
+                    yerr=st.session_state.threshold_eval_df['CV_Accuracy_Std'], 
+                    fmt='-o', capsize=5, label='CV Accuracy'
+                )
+                ax.plot(
+                    st.session_state.threshold_eval_df['Threshold'], 
+                    st.session_state.threshold_eval_df['Test_Accuracy'], 
+                    '-s', label='Test Accuracy', color='orange'
+                )
+
+                ax.set_xlabel("Threshold", color='white')
+                ax.set_ylabel("Accuracy", color='white')
+                ax.set_title("Threshold vs Accuracy (CV & Test)", color='white')
+
+                ax.tick_params(axis='x', colors='white')
+                ax.tick_params(axis='y', colors='white')
+
+                ax.grid(True, color='gray', alpha=0.3)
+                legend = ax.legend(frameon=False)
+                for text in legend.get_texts():
+                    text.set_color('white')
+
                 st.pyplot(fig)
+
+        if "threshold_eval_df" in st.session_state and st.button("Analyze Important Features (Threshold 0.005)"):
+            threshold = 0.005
+            important_features = st.session_state.importance_df[
+                st.session_state.importance_df['Importance'] >= threshold
+            ]
+            X_train_selected = st.session_state.X_train[important_features["Feature"]]
+            X_test_selected = st.session_state.X_test[important_features["Feature"]]
+
+            st.session_state.important_features = important_features
+            st.session_state.X_train_selected = X_train_selected
+            st.session_state.X_test_selected = X_test_selected
+            st.session_state.show_selected_features = True
+
+        if st.session_state.get("show_selected_features", False):
+            st.subheader("🔹Grafik Feature Importance dengan Threshold 0.005")
+            st.bar_chart(st.session_state.important_features.set_index("Feature")["Importance"])
+            st.write(f"Fitur yang dihapus: {len(st.session_state.X_train.columns) - len(st.session_state.important_features)}")
+            st.write(f"Jumlah fitur dengan importance >= 0.005: {len(st.session_state.important_features)}")
+            original_count = st.session_state.X_train.shape[1]
+            selected_count = len(st.session_state.important_features)
+            reduction_percent = ((original_count - selected_count) / original_count) * 100
+            st.write(f"📉 **Feature Reduction:** {original_count} → {selected_count} features ({reduction_percent:.1f}% reduction)")
+
+            st.subheader("🔹Selected Features")
+            st.dataframe(st.session_state.important_features.reset_index(drop=True))
+            
+            st.subheader("🔹Retrain Model")
+            if "important_features" in st.session_state and st.button("Retrain Model after Feature Selection"):
+                rf_model_selected, selected_features = joblib.load("models/best_model_selected_features.pkl")
+                X_train_selected = st.session_state.X_train[selected_features]
+                X_test_selected = st.session_state.X_test[selected_features]
+                y_train_pred_selected = rf_model_selected.predict(X_train_selected)
+                y_pred_selected = rf_model_selected.predict(X_test_selected)
+
+                st.session_state.retrained_model = {
+                    "model": rf_model_selected,
+                    "y_train_pred": y_train_pred_selected,
+                    "y_pred": y_pred_selected,
+                    "selected_features": selected_features
+                }
+                st.session_state.show_retrain_result = True
+
+            if st.session_state.get("show_retrain_result", False):
+                retrain = st.session_state.retrained_model
+                if st.session_state.get("show_retrain_result", False):
+                    retrain = st.session_state.retrained_model
+
+                    train_acc = accuracy_score(st.session_state.y_train, retrain["y_train_pred"])
+                    test_acc = accuracy_score(st.session_state.y_test, retrain["y_pred"])
+                    
+                    st.write(f"**Train Accuracy:** {train_acc:.4f}")
+                    st.write(f"**Test Accuracy:** {test_acc:.4f}")
+
                 
-            with col2:
-                fig, ax = plt.subplots(figsize=(7, 5), facecolor='none')
-                sns.heatmap(cm_selected, annot=True, fmt="d", cmap="Greens", ax=ax,cbar=True)
-                ax.set_title("Confusion Matrix\n(After Feature Selection)", color = 'white')
-                ax.set_xlabel("Predicted Label", color = "white")
-                ax.set_ylabel("True Label", color = "white")
-                st.pyplot(fig)
-                
+                    st.subheader(" 🔹Classification Report")
+                    report_test_text = classification_report(
+                        st.session_state.y_test, retrain["y_pred"]
+                    )
+                    st.markdown(f"```\n{report_test_text}\n```")
+
+                    cm_selected = confusion_matrix(st.session_state.y_test, retrain["y_pred"])
+                    st.subheader(" 🔹**Confusion Matrix sebelum & setelah Feature Selection**")
+                    col1, col2 = st.columns([1, 1])
+                    
+                    with col1:
+                        fig, ax = plt.subplots(figsize=(7, 5), facecolor='none')
+                        sns.heatmap(cm, annot=True, fmt="d", cmap="Greens", ax=ax,cbar=True)
+                        ax.set_title("Confusion Matrix\n(Before Feature Selection)", color = 'white')
+                        ax.set_xlabel("Predicted Label", color = "white")
+                        ax.set_ylabel("True Label", color = "white")
+                        st.pyplot(fig)
+                        
+                    with col2:
+                        fig, ax = plt.subplots(figsize=(7, 5), facecolor='none')
+                        sns.heatmap(cm_selected, annot=True, fmt="d", cmap="Greens", ax=ax,cbar=True)
+                        ax.set_title("Confusion Matrix\n(After Feature Selection)", color = 'white')
+                        ax.set_xlabel("Predicted Label", color = "white")
+                        ax.set_ylabel("True Label", color = "white")
+                        st.pyplot(fig)
+                        
