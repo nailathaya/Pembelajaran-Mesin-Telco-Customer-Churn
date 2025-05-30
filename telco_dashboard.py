@@ -250,7 +250,7 @@ Logistic Regression:
     best_pipeline = joblib.load('models/best_model.pkl')
 
     if isinstance(best_pipeline.named_steps['clf'], RandomForestClassifier):
-        rf_model = best_pipeline.named_steps['clf']
+        model = best_pipeline.named_steps['clf']
 
     st.write("**Skema model & Kombinasi Parameter Terbaik (Best Model & Parameters):**")
     st.write(gs.best_params_)
@@ -260,8 +260,8 @@ Logistic Regression:
     st.write(f"{gs.cv_results_['std_test_score'][gs.best_index_]:.4f}")
 
 
-    y_train_pred = rf_model.predict(st.session_state.X_train)
-    y_pred = rf_model.predict(st.session_state.X_test)
+    y_train_pred = model.predict(st.session_state.X_train)
+    y_pred = model.predict(st.session_state.X_test)
 
     st.session_state.y_train_pred = y_train_pred
     st.session_state.y_pred = y_pred
@@ -280,7 +280,7 @@ Logistic Regression:
         cm = confusion_matrix(st.session_state.y_test, y_pred)
 
 
-        importances = rf_model.feature_importances_
+        importances = model.feature_importances_
         features = st.session_state.X_train.columns
         importance_df = pd.DataFrame({"Feature": features, "Importance": importances}).sort_values(by="Importance", ascending=False)
         st.session_state.importance_df = importance_df
@@ -363,14 +363,14 @@ Logistic Regression:
             
             st.subheader("🔹Retrain Model")
             if "important_features" in st.session_state and st.button("Retrain Model after Feature Selection"):
-                rf_model_selected, selected_features = joblib.load("models/best_model_selected_features.pkl")
+                model_selected, selected_features = joblib.load("models/best_model_selected_features.pkl")
                 X_train_selected = st.session_state.X_train[selected_features]
                 X_test_selected = st.session_state.X_test[selected_features]
-                y_train_pred_selected = rf_model_selected.predict(X_train_selected)
-                y_pred_selected = rf_model_selected.predict(X_test_selected)
+                y_train_pred_selected = model_selected.predict(X_train_selected)
+                y_pred_selected = model_selected.predict(X_test_selected)
 
                 st.session_state.retrained_model = {
-                    "model": rf_model_selected,
+                    "model": model_selected,
                     "y_train_pred": y_train_pred_selected,
                     "y_pred": y_pred_selected,
                     "selected_features": selected_features
