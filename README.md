@@ -1,1 +1,1 @@
-# Telco-Customer-Churn-with-Random-Forest
+# Telco-Customer-Churn-Prediction
