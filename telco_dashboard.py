@@ -71,7 +71,7 @@ def encoding_data(X_train,X_test):
     X_test = pd.DataFrame(X_test, columns=encoder.get_feature_names_out())
     return encoded_df,X_test
 
-def sampling_data(df):
+def sampling_data(encoded_df,y_train):
     from imblearn.under_sampling import RandomUnderSampler
 
     sampling_method = RandomUnderSampler(sampling_strategy=1.0,random_state=random_state)
@@ -137,201 +137,224 @@ with tab1:
 
 with tab2:
     st.header("EDA & Preprocessing")
-    if not st.session_state.get("data_loaded", False):
-        st.warning("⚠️ Anda perlu Load Dataset terlebih dahulu pada tab Load Dataset sebelum melakukan EDA & Preprocessing.")
+    if not st.session_state.data_loaded:
+        st.warning("⚠️ Anda perlu memuat dataset terlebih dahulu.")
     else:
-        st.subheader("🔹 DataFrame Info")
+        if not st.session_state.get("data_loaded", False):
+            st.warning("⚠️ Anda perlu Load Dataset terlebih dahulu pada tab Load Dataset sebelum melakukan EDA & Preprocessing.")
+        else:
+            st.subheader("🔹 DataFrame Info")
 
-        if "convert_done" not in st.session_state:
-            st.session_state.convert_done = False
-        if "split" not in st.session_state:
-            st.session_state.split = False
-        if "scaled" not in st.session_state:
-            st.session_state.scaled = False
+            if "convert" not in st.session_state:
+                st.session_state.convert = False
+            if "split" not in st.session_state:
+                st.session_state.split = False
+            if "scaled" not in st.session_state:
+                st.session_state.scaled = False
+            if "encoded" not in st.session_state:
+                st.session_state.encoded = False
+            if "sampled" not in st.session_state:
+                st.session_state.sampled = False
 
-        if st.button("🔄 Konversi TotalCharges & 🗑️ Hapus CustomerID"):
-            df = st.session_state.df.copy()
+            if st.button("🔄 Konversi TotalCharges & 🗑️ Hapus CustomerID"):
+                df = st.session_state.df.copy()
 
-            if "customerID" in df.columns:
-                df = df.drop(columns=["customerID"])
+                if "customerID" in df.columns:
+                    df = df.drop(columns=["customerID"])
 
-            df["TotalCharges"] = pd.to_numeric(df["TotalCharges"], errors="coerce")
-            df.dropna(subset=['TotalCharges'], inplace=True)
+                df["TotalCharges"] = pd.to_numeric(df["TotalCharges"], errors="coerce")
+                df.dropna(subset=['TotalCharges'], inplace=True)
 
-            st.session_state.df = df
-            st.session_state.convert_done = True
-            st.success("Konversi dan penghapusan kolom berhasil!")
+                st.session_state.df = df
+                st.session_state.convert = True
+                st.success("Konversi dan penghapusan kolom berhasil!")
 
-        df = st.session_state.df
-        buffer = io.StringIO()
-        df.info(buf=buffer)
-        info_str = buffer.getvalue()
-        st.code(info_str, language="python")
+            df = st.session_state.df
+            buffer = io.StringIO()
+            df.info(buf=buffer)
+            info_str = buffer.getvalue()
+            st.code(info_str, language="python")
 
-        if st.session_state.convert_done:
-            st.subheader("🔹 Split Dataset")
-            if st.button("✂️ Split Dataset"):
-                X = st.session_state.df.drop("Churn", axis=1)
-                y = st.session_state.df['Churn']
-                X_train,X_test,y_train,y_test = split_data(X,y)
-                st.session_state.X_train = X_train
-                st.session_state.X_test = X_test
-                st.session_state.y_train = y_train
-                st.session_state.y_test = y_test
-                st.session_state.split = True
-                st.success("Dataset berhasil di-split!")
-                st.write(f"Jumlah data latih: {len(X_train)}")
-                st.write(f"Jumlah data uji: {len(X_test)}")
-                st.write(f"Proporsi: 80% latih / 20% uji")
-        
-        if st.session_state.split:
-            st.subheader("🔹 Scaling Dataset")
-
-            if st.button("🚀 Scaling Dataset"):
-                X_train_scaled, X_test_scaled = scaling_data(
-                    st.session_state.df, st.session_state.X_train, st.session_state.X_test
-                )
-                st.session_state.X_train = X_train_scaled
-                st.session_state.X_test = X_test_scaled
-                st.session_state.scaled = True
-                st.success("Dataset berhasil di-scaling!")
-
-            # Boxplot selalu ditampilkan (berubah tergantung sudah diskalakan atau belum)
-            st.write("**Boxplot fitur numerikal**")
-            col1, col2 = st.columns([1, 1])
-            with col1:
-                fig, ax = plt.subplots(figsize=(10, 4))
-
-                # Pilih data sesuai status scaling
-                if st.session_state.scaled:
-                    boxplot_data = st.session_state.X_train.copy()
-                    label_caption = "🔍 Menampilkan boxplot SETELAH scaling"
-                    if "SeniorCitizen" in boxplot_data.columns:
-                        boxplot_data = boxplot_data.drop(columns=["SeniorCitizen"])
-                else:
-                    boxplot_data = st.session_state.X_train.copy()
-                    if "SeniorCitizen" in boxplot_data.columns:
-                        boxplot_data = boxplot_data.drop(columns=["SeniorCitizen"])
-                    label_caption = "🔍 Menampilkan boxplot SEBELUM scaling"
-
-                sns.boxplot(data=boxplot_data, ax=ax)
-
-                # Styling transparan dan warna putih
-                fig.patch.set_alpha(0.0)
-                ax.set_facecolor("none")
-                ax.title.set_color("white")
-                ax.xaxis.label.set_color("white")
-                ax.yaxis.label.set_color("white")
-                ax.tick_params(axis="x", colors="white")
-                ax.tick_params(axis="y", colors="white")
-                for spine in ax.spines.values():
-                    spine.set_color("white")
-
-                st.pyplot(fig)
-
-            st.caption(label_caption)
-                # st.subheader("🔹 Encoding Data")
-                # st.write("Preview DataFrame Sebelum Encoding")
-                # st.dataframe(df)
-
-        # if st.button("🧩 Lakukan Encoding Data"):
-        #         st.write("Preview DataFrame Setelah Encoding")
-        #         encoded_df = encoding_data(df)
-        #         st.session_state.encoded_df = encoded_df
-        #         st.session_state.encoded_done = True
-        #         st.success("Encoding berhasil!")
-
-
-#         if st.session_state.convert_done and st.session_state.encoded_done:
+            if st.session_state.convert:
+                st.subheader("🔹 Split Dataset")
+                if st.button("✂️ Split Dataset"):
+                    if not st.session_state.split:
+                        X = st.session_state.df.drop("Churn", axis=1)
+                        y = st.session_state.df['Churn']
+                        X_train,X_test,y_train,y_test = split_data(X,y)
+                        st.session_state.X_train = X_train
+                        st.session_state.X_test = X_test
+                        st.session_state.y_train = y_train
+                        st.session_state.y_test = y_test
+                    st.session_state.split = True
             
-#             encoded_df = st.session_state.encoded_df
-#             st.write(f"Shape sebelum encoding: {df.shape}")
-#             st.write(f"Shape setelah encoding: {encoded_df.shape}")
+            if st.session_state.split:
+                st.success("Dataset berhasil di-split!")
+                st.write(f"Jumlah data latih: {len(st.session_state.X_train)}")
+                st.write(f"Jumlah data uji: {len(st.session_state.X_test)}")
+                st.write(f"Proporsi: 80% latih / 20% uji")
 
-#         if "encoded_df" in st.session_state:
-#             st.subheader("🔹 Distribusi Churn")
+            if st.session_state.split:
+                st.subheader("🔹 Scaling Dataset")
 
-#             if "smote_df" not in st.session_state:
-#                 st.session_state.smote_df = None
+                if st.button("🚀 Scaling Dataset"):
+                    if not st.session_state.scaled:
+                        X_train_scaled, X_test_scaled = scaling_data(
+                            st.session_state.df, st.session_state.X_train, st.session_state.X_test
+                        )
+                        st.session_state.X_train = X_train_scaled
+                        st.session_state.X_test = X_test_scaled
+                    
+                    st.session_state.scaled = True
+                    st.success("Dataset berhasil di-scaling!")
 
-#             if st.button("📚 Sampling dengan SMOTE"):
-#                 X_res, y_res = sampling_data(st.session_state.encoded_df)
-#                 df_resampled = pd.DataFrame(X_res, columns=X_res.columns)
-#                 df_resampled["Churn"] = y_res
-#                 st.session_state.smote_df = df_resampled
-#                 st.success("SMOTE sampling berhasil!")
+                st.write("**Boxplot fitur numerikal**")
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    fig, ax = plt.subplots(figsize=(10, 4))
 
-#             if st.session_state.smote_df is not None:
-#                 churn_counts = st.session_state.smote_df["Churn"].value_counts()
-#                 st.info("Menampilkan distribusi setelah SMOTE.")
-#             else:
-#                 churn_counts = st.session_state.encoded_df["Churn"].value_counts()
-#                 st.info("Menampilkan distribusi data asli.")
+                    if st.session_state.scaled:
+                        boxplot_data = st.session_state.X_train.copy()
+                        label_caption = "🔍 Menampilkan boxplot SETELAH scaling"
+                        if "SeniorCitizen" in boxplot_data.columns:
+                            boxplot_data = boxplot_data.drop(columns=["SeniorCitizen"])
+                    else:
+                        boxplot_data = st.session_state.X_train.copy()
+                        if "SeniorCitizen" in boxplot_data.columns:
+                            boxplot_data = boxplot_data.drop(columns=["SeniorCitizen"])
+                        label_caption = "🔍 Menampilkan boxplot SEBELUM scaling"
 
-#             churn_counts.index = churn_counts.index.map({0: "No", 1: "Yes"})
-#             st.bar_chart(churn_counts)
-#         if st.session_state.get("smote_df") is not None:
-#             st.subheader("🔹 Split & Scaling Data")
-#             if st.button("✂️ Split & Scaling Data"):
-#                 X = st.session_state.smote_df.drop("Churn", axis=1)
-#                 y = st.session_state.smote_df["Churn"]
-#                 X_train, X_test, y_train, y_test = splitting_scaling(X, y)
+                    sns.boxplot(data=boxplot_data, ax=ax)
 
-#                 st.session_state.X_train = X_train
-#                 st.session_state.X_test = X_test
-#                 st.session_state.y_train = y_train
-#                 st.session_state.y_test = y_test
+                    fig.patch.set_alpha(0.0)
+                    ax.set_facecolor("none")
+                    ax.title.set_color("white")
+                    ax.xaxis.label.set_color("white")
+                    ax.yaxis.label.set_color("white")
+                    ax.tick_params(axis="x", colors="white")
+                    ax.tick_params(axis="y", colors="white")
+                    for spine in ax.spines.values():
+                        spine.set_color("white")
 
-#                 st.success("Data berhasil di-split dan di-scaling!")
-#                 st.write(f"Jumlah data training: {len(X_train)}")
-#                 st.write(f"Jumlah data testing: {len(X_test)}")
-#                 st.write(f"Proporsi: {len(X_train)/(len(X_train)+len(X_test)):.2%} training / {len(X_test)/(len(X_train)+len(X_test)):.2%} testing")
-        
+                    st.pyplot(fig)
 
-# with tab3:
-#     st.header("Hyperparameter Tuning & Build Model")
+                st.caption(label_caption)
+
+            if st.session_state.scaled:
+                st.subheader("🔹 Encoding Dataset")
+                st.write("**Preview Dataset Sebelum Encoding**")
+                # st.dataframe(encoded_df)
+                st.dataframe(st.session_state.X_train.reset_index(drop=True))
+                if st.button("🧩 Lakukan Encoding Data"):
+                    st.write("Preview Dataset Setelah Encoding")
+                    if not st.session_state.encoded:
+                        encoded_df,X_test_encoded = encoding_data(st.session_state.X_train,st.session_state.X_test)
+                        st.session_state.encoded_df = encoded_df
+                        st.session_state.X_test = X_test_encoded
+                    st.dataframe(st.session_state.encoded_df)
+                    # st.session_state.encoded_df = encoded_df
+                    # st.session_state.X_test = X_test_encoded
+                    st.session_state.encoded = True
+                    st.success("Encoding berhasil!")
+
+            if st.session_state.encoded:
+                st.subheader("🔹 Distribusi Churn")
+
+                if st.button("📚 Sampling dengan Random Under Sampler"):
+                    if not st.session_state.sampled:
+                        sampled_df= sampling_data(st.session_state.encoded_df,st.session_state.y_train)
+                        st.session_state.sampled_df = sampled_df
+                        st.session_state.sampled = True
+                        st.success("Random Under Sampling berhasil!")
+                    
+                if st.session_state.encoded and st.session_state.sampled:
+                    churn_counts = st.session_state.sampled_df["Churn"].value_counts()
+                    st.info("Menampilkan distribusi setelah Random Under Sampling.")
+                else:
+                    churn_counts = st.session_state.y_train.value_counts()
+                    st.info("Menampilkan distribusi data asli.")
+
+                churn_counts.index = churn_counts.index.map({0: "No", 1: "Yes"})
+                st.bar_chart(churn_counts)
+
+with tab3:
+    if "model_imported" not in st.session_state:
+        st.session_state.model_imported = False
+    if "model_trained" not in st.session_state:
+        st.session_state.model_trained = False
+    if "thresholding" not in st.session_state:
+        st.session_state.thresholding = False
+    if "model_selected" not in st.session_state:
+        st.session_state.model_selected = False
+
+    st.header("Hyperparameter Tuning & Build Model")
     
-#     if not all(k in st.session_state for k in ("X_train", "X_test", "y_train", "y_test")):
-#         st.warning("⚠️ Anda perlu melakukan preprocessing, SMOTE, dan split & scaling pada tab sebelumnya terlebih dahulu.")
-#         st.stop()
-#     st.write("**Skema model yang akan diuji melalui Hyperparameter Tuning:**")
-#     st.code("""classifiers = {
-#                 'rf': RandomForestClassifier(random_state=42),
-#                 'svm': SVC(probability=True, random_state=42),
-#                 'lr': LogisticRegression(max_iter=1000, random_state=42)
-#             }""", language="python")
-#     st.write("**Parameter untuk setiap Skema Model:**")
-#     st.code("""Random Forest:
-#     'n_estimators': [100, 200],
-#     'max_depth': [None, 10, 20],
-#     'min_samples_split': [2, 5,10],
-#     'min_samples_leaf': [1, 2],
-#     'bootstrap': [True,False]
-# Support Vector Machine:
-#     'C': [0.1, 1, 10],
-#     'kernel': ['linear', 'rbf'],
-#     'gamma': ['scale', 'auto']
-# Logistic Regression:
-#     'C': [0.01, 0.1, 1, 10],
-#     'penalty': ['l2'],
-#     'solver': ['lbfgs']
-# """,
-#                 language="python"
-#     )
+    if not all(k in st.session_state for k in ("convert","split","scaled","encoded","sampled")):
+        st.warning("⚠️ Anda perlu melakukan EDA & preprocessing data terlebih dahulu.")
+    else:
+        st.write("**Skema model yang akan diuji melalui Hyperparameter Tuning:**")
+        st.code("""classifiers = {
+                    'rf': RandomForestClassifier(random_state=random_state),
+                    'svm': SVC(probability=True, random_state=random_state),
+                    'xgb': XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=random_state)
+                }""", language="python")
+        st.write("**Parameter untuk setiap Skema Model:**")
+        st.code("""Random Forest:
+        'n_estimators': [100, 200],
+        'max_depth': [None, 10, 20],
+        'min_samples_split': [2, 5,10],
+        'min_samples_leaf': [1, 2, 5],
+        'bootstrap': [True, False],
+        'class_weight': ['balanced', {0: 1, 1: 2}, {0: 2, 1: 1}]
+Support Vector Machine:
+        'C': [0.1, 1, 10],
+        'kernel': ['linear', 'rbf'],
+        'gamma': ['scale', 'auto']
+XGBoost:
+        'max_depth': [3, 6],
+        'learning_rate': [0.05, 0.1],
+        'subsample': [0.7, 0.8],
+        'colsample_bytree': [0.7, 0.8],
+        'reg_alpha': [0, 0.1],
+        'reg_lambda': [1, 2] 
+""",
+                    language="python"
+        )
 
-#     gs = joblib.load("models/grid_search.pkl")
-#     best_pipeline = joblib.load('models/best_model.pkl')
+        gs = joblib.load("models/grid_search.pkl")
+        best_pipeline = joblib.load('models/best_model.pkl')
 
-#     if isinstance(best_pipeline.named_steps['clf'], RandomForestClassifier):
-#         model = best_pipeline.named_steps['clf']
+        if isinstance(best_pipeline.named_steps['clf'], XGBClassifier):
+            model = best_pipeline.named_steps['clf']
+            st.session_state.model = model
+            st.session_state.model_imported = True
 
-#     st.write("**Skema model & Kombinasi Parameter Terbaik (Best Model & Parameters):**")
-#     st.write(gs.best_params_)
-#     st.write("**Skor Rata-Rata Cross Validation Terbaik (Best Score):**")
-#     st.write(f"{gs.cv_results_['mean_test_score'][gs.best_index_]:.4f}")
-#     st.write("**Standar Deviasi Cross Validation:**")
-#     st.write(f"{gs.cv_results_['std_test_score'][gs.best_index_]:.4f}")
+        st.write("**Skema model & Kombinasi Parameter Terbaik (Best Model & Parameters):**")
+        # st.write(gs.best_params_)
+        st.code('''XGBClassifier('max_depth': 3,
+              'learning_rate': 0.1,
+              'subsample': 0.8,
+              'colsample_bytree': 0.7,
+              'reg_alpha': 0.1,
+              'reg_lambda': 1)''',language="python")
+        st.write("**Skor Rata-Rata Cross Validation Terbaik (Best Score):**")
+        st.write(f"{gs.cv_results_['mean_test_score'][gs.best_index_]:.4f}")
+        st.write("**Standar Deviasi Cross Validation:**")
+        st.write(f"{gs.cv_results_['std_test_score'][gs.best_index_]:.4f}")
 
+        if st.session_state.model_imported:
+            st.subheader("🔹 Train Model")
+            st.dataframe(st.session_state.sampled_df['Churn'].reset_index(drop=True))
+            if st.button("💽 Train Model"):
+                y_train_pred = model.predict(st.session_state.sampled_df.drop(columns=['Churn']))
+                y_pred = model.predict(st.session_state.X_test)
+
+                # st.write(f"**Train Accuracy:** {accuracy_score(st.session_state.sampled_df['Churn'], y_train_pred):.4f}")
+                st.write(f"**Test Accuracy:**  {accuracy_score(st.session_state.y_test, y_pred):.4f}")
+        
+                
+
+                
 
 #     y_train_pred = model.predict(st.session_state.X_train)
 #     y_pred = model.predict(st.session_state.X_test)
