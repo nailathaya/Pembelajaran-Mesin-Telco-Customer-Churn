@@ -242,7 +242,7 @@ with tab2:
             if st.session_state.scaled:
                 st.subheader("🔹 Encoding Dataset")
                 st.write("**Preview Dataset Sebelum Encoding**")
-                # st.dataframe(encoded_df)
+
                 st.dataframe(st.session_state.X_train.reset_index(drop=True))
                 if st.button("🧩 Lakukan Encoding Data"):
                     st.write("Preview Dataset Setelah Encoding")
@@ -251,8 +251,6 @@ with tab2:
                         st.session_state.encoded_df = encoded_df
                         st.session_state.X_test = X_test_encoded
                     st.dataframe(st.session_state.encoded_df)
-                    # st.session_state.encoded_df = encoded_df
-                    # st.session_state.X_test = X_test_encoded
                     st.session_state.encoded = True
                     st.success("Encoding berhasil!")
 
@@ -267,9 +265,6 @@ with tab2:
                         st.session_state.y_sampled = y_sampled
                         st.session_state.sampled = True
                         st.success("Random Under Sampling berhasil!")
-                    # st.session_state.sampled_df = sampled_df
-                    # st.session_state.X_sampled = X_sampled
-                    # st.session_state.y_sampled = y_sampled
                         
                 if st.session_state.encoded and st.session_state.sampled:
                     churn_counts = st.session_state.y_sampled.value_counts()
@@ -334,7 +329,7 @@ XGBoost:
             st.session_state.model_imported = True
 
         st.write("**Skema model & Kombinasi Parameter Terbaik (Best Model & Parameters):**")
-        # st.write(gs.best_params_)
+
         st.code('''XGBClassifier('max_depth': 3,
               'learning_rate': 0.1,
               'subsample': 0.8,
@@ -349,17 +344,14 @@ XGBoost:
         if st.session_state.model_imported and "X_sampled" in st.session_state:
             st.session_state.model_trained = True
             st.subheader("🔹 Train Model")
-            # st.dataframe(st.session_state.X_sampled.reset_index(drop=True))
             y_train_pred = model.predict(st.session_state.X_sampled)
             y_pred = model.predict(st.session_state.X_test)
             if st.button("💽 Train Model"):
-                # Simpan hasil evaluasi
                 st.session_state.train_accuracy = accuracy_score(st.session_state.y_sampled, y_train_pred)
                 st.session_state.test_accuracy = accuracy_score(st.session_state.y_test, y_pred)
                 st.session_state.classification_report = classification_report(st.session_state.y_test, y_pred)
                 st.session_state.confusion_matrix = confusion_matrix(st.session_state.y_test, y_pred)
 
-                # st.session_state.model_trained = True
                 st.write(f"**Train Accuracy:** {accuracy_score(st.session_state.y_sampled, y_train_pred):.4f}")
                 st.write(f"**Test Accuracy:**  {accuracy_score(st.session_state.y_test, y_pred):.4f}")
 
@@ -495,7 +487,7 @@ XGBoost:
                     st.markdown(f"```\n{report_test_text}\n```")
 
                     cm = confusion_matrix(st.session_state.y_test, y_pred)
-                    
+
                     cm_selected = confusion_matrix(st.session_state.y_test, retrain["y_pred"])
                     st.subheader(" 🔹**Confusion Matrix sebelum & setelah Feature Selection**")
                     col1, col2 = st.columns([1, 1])
@@ -564,7 +556,7 @@ with tab4:
                 help="Jumlah biaya yang dikenakan setiap bulan kepada pelanggan."
             )
         elif col == 'TotalCharges':
-            continue  # Akan dihitung otomatis di bawah
+            continue 
         else:
             label_map = {
                 'gender': ("Jenis Kelamin:", "Jenis kelamin pelanggan."),
@@ -591,12 +583,11 @@ with tab4:
                 help=help_text
             )
 
-    # Hitung otomatis TotalCharges
+    # Sesuai deskripsi dataset, Total Charges adalah hasil perkalian dari tenure dan monthlycharges
     total_charges = input_data['tenure'] * input_data['MonthlyCharges']
     input_data['TotalCharges'] = total_charges
     st.write(f"**Total Biaya (TotalCharges = tenure × MonthlyCharges):** {total_charges:.2f}")
 
-    # Tombol untuk prediksi
     if st.button("Prediksi"):
         input_df = pd.DataFrame([input_data])
         X_transformed = preprocessor.transform(input_df)
@@ -609,15 +600,3 @@ with tab4:
         st.write(f"📌 **Pelanggan Diprediksi Akan Churn?**  {'Ya' if pred_class == 1 else 'Tidak'}")
         st.write(f"📊 **Probabilitas Churn:**  {pred_proba:.2f}")
                 
-
-#     y_train_pred = model.predict(st.session_state.X_train)
-#     y_pred = model.predict(st.session_state.X_test)
-
-#     st.session_state.y_train_pred = y_train_pred
-#     st.session_state.y_pred = y_pred
-#     st.subheader("🔹 Training Model")
-#     if st.button("Train Model"):
-#         st.session_state.show_accuracy = True
-
-#     if st.session_state.get("show_accuracy", False):
-#         
