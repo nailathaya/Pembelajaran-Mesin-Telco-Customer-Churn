@@ -1,7 +1,7 @@
-numpy==1.22.4
+numpy==1.24.3
 scikit-learn==1.1.3
+joblib>=1.1.0
 xgboost
 kagglehub
-joblib
 imbalanced-learn
-seaborn
+streamlit
