@@ -4,3 +4,4 @@ xgboost
 kagglehub
 joblib
 imbalanced-learn
+seaborn
