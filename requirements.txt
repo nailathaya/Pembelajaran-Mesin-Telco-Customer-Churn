@@ -5,3 +5,4 @@ xgboost
 kagglehub
 imbalanced-learn
 streamlit
+seaborn
